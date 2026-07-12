@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ALL_SCENARIOS } from './scenarios';
 import './index.css';
 
@@ -37,6 +37,43 @@ export default function App() {
   const [visitedLocations, setVisitedLocations] = useState([]);
   const [inputCode, setInputCode] = useState('');
   const [storyText, setStoryText] = useState('');
+    // Флаг, который показывает, есть ли в памяти сохраненная игра
+  const [hasSavedGame, setHasSavedGame] = useState(false);
+
+  // 1. АВТОМАТИЧЕСКАЯ ПРОВЕРКА СОХРАНЕНИЙ ПРИ СТАРТЕ ПРИЛОЖЕНИЯ
+  useEffect(() => {
+    const saved = localStorage.getItem('arkham_save');
+    if (saved) {
+      setHasSavedGame(true);
+    }
+  }, []);
+
+  // 2. ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ДАННЫХ ИЗ ПАМЯТИ БРАУЗЕРА
+  const loadGame = () => {
+    const saved = localStorage.getItem('arkham_save');
+    if (saved) {
+      const gameData = JSON.parse(saved);
+      setActiveScenario(gameData.activeScenario);
+      setCurrentTime(gameData.currentTime);
+      setVisitedLocations(gameData.visitedLocations);
+      setStoryText(gameData.storyText);
+      setScreen('game');
+    }
+  };
+
+  // 3. АВТОСОХРАНЕНИЕ: ПРИ КАЖДОМ ХОДЕ ДАННЫЕ ЗАПИСЫВАЮТСЯ В ПАМЯТЬ
+  useEffect(() => {
+    if (screen === 'game' && activeScenario) {
+      const gameData = {
+        activeScenario,
+        currentTime,
+        visitedLocations,
+        storyText
+      };
+      localStorage.setItem('arkham_save', JSON.stringify(gameData));
+      setHasSavedGame(true);
+    }
+  }, [screen, activeScenario, currentTime, visitedLocations, storyText]);
 
   const startScenario = (scenario) => {
     setActiveScenario(scenario);
@@ -70,6 +107,16 @@ export default function App() {
         <div style={styles.menuBox}>
           <h1 style={styles.menuTitle}>Тайны Аркхэма</h1>
           <p style={styles.menuSubtitle}>Цифровой помощник сыщика</p>
+                    {/* Зеленая кнопка «Продолжить» появляется только при наличии сохранения */}
+          {hasSavedGame && (
+            <button 
+              style={{ ...styles.menuButton, backgroundColor: '#10b981', color: '#fff' }} 
+              onClick={loadGame}
+            >
+              Продолжить игру ⏳
+            </button>
+          )}
+
           <button style={styles.menuButton} onClick={() => setScreen('select_case')}>Выбрать Дело</button>
           <button style={styles.menuButton} onClick={() => setScreen('instruction')}>Инструкция</button>
         </div>
@@ -134,7 +181,31 @@ export default function App() {
                 ))}
               </div>
             </div>
-            <button style={styles.secondaryButton} onClick={() => setScreen('menu')}>↩ В меню выбора</button>
+                        {/* Кнопка безопасного выхода с сохранением прогресса */}
+            <button 
+              style={{ ...styles.secondaryButton, backgroundColor: '#44403c', color: '#fef3c7', marginBottom: '8px', border: '1px solid #78350f' }} 
+              onClick={() => {
+                // Просто уходим в меню. Фоновый автосохранятор уже всё записал!
+                setScreen('menu');
+              }}
+            >
+              💾 Выйти в меню (Сохранить)
+            </button>
+            <button 
+              style={styles.secondaryButton} 
+              onClick={() => {
+                if (window.confirm("Вы уверены, что хотите выйти? Прогресс текущего дела будет полностью стерт.")) {
+                  localStorage.removeItem('arkham_save');
+                  setHasSavedGame(false);
+                  setActiveScenario(null);
+                  setVisitedLocations([]);
+                  setCurrentTime(0);
+                  setScreen('menu');
+                }
+              }}
+            >
+              ↩ Завершить и выйти в меню
+            </button>
           </div>
           <div style={styles.mainContent}>
             <div>
