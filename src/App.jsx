@@ -24,6 +24,8 @@ const styles = {
   timeText: { fontSize: '24px', fontWeight: 'bold', color: '#f59e0b', marginLeft: '8px' },
   tagButton: { backgroundColor: '#44403c', color: '#fde68a', padding: '6px 12px', borderRadius: '4px', fontSize: '14px', border: '1px solid #fbbf24', marginRight: '8px', marginBottom: '8px', display: 'inline-block', cursor: 'pointer' },
   storyText: { fontSize: '18px', lineHeight: '1.6', color: '#d6d3d1', fontStyle: 'italic', whiteSpace: 'pre-line' },
+  ritualText: { fontFamily: '"Courier New", monospace', fontStyle: 'normal', color: '#fbbf24', letterSpacing: '0.08em', fontWeight: 600, display: 'inline-block', textAlign: 'center', whiteSpace: 'pre-line', margin: '20px auto', fontSize: '20px', lineHeight: '1.4' },
+  noteText: { fontFamily: '"Brush Script MT", "Lucida Handwriting", cursive', fontStyle: 'italic', color: '#f8e7b5', letterSpacing: '0.02em', display: 'block', textAlign: 'center', whiteSpace: 'pre-wrap', margin: '24px auto', padding: '18px 24px', borderRadius: '16px', border: '1px dashed rgba(255, 235, 183, 0.5)', backgroundColor: 'rgba(34, 24, 12, 0.85)', maxWidth: '720px', fontSize: '22px', lineHeight: '1.5', boxShadow: '0 16px 30px rgba(0, 0, 0, 0.35)' },
   form: { marginTop: '32px', paddingTop: '16px', borderTop: '1px solid #78350f', display: 'flex', gap: '16px' },
   input: { flex: '1', backgroundColor: '#1c1917', border: '1px solid #78350f', borderRadius: '4px', padding: '10px 16px', color: '#fef3c7', fontSize: '16px', outline: 'none' },
   actionButton: { backgroundColor: '#b45309', color: '#1c1917', fontWeight: 'bold', padding: '10px 24px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '16px' },
@@ -99,6 +101,47 @@ export default function App() {
     setVisitedLocations(prev => [...prev, { code: code, text: textOnLocation }]);
     setStoryText(textOnLocation);
     setInputCode('');
+  };
+
+  const renderStoryText = (text) => {
+    const parts = [];
+    const tokens = text.split(/(\[\[ritual\]\]|\[\[\/ritual\]\]|\[\[note\]\]|\[\[\/note\]\])/g);
+    let renderStyle = null;
+
+    tokens.forEach((token, index) => {
+      if (token === '[[ritual]]') {
+        renderStyle = 'ritual';
+        return;
+      }
+      if (token === '[[/ritual]]') {
+        renderStyle = null;
+        return;
+      }
+      if (token === '[[note]]') {
+        renderStyle = 'note';
+        return;
+      }
+      if (token === '[[/note]]') {
+        renderStyle = null;
+        return;
+      }
+
+      if (renderStyle === 'ritual') {
+        parts.push(
+          <span key={index} style={styles.ritualText}>{token}</span>
+        );
+      } else if (renderStyle === 'note') {
+        parts.push(
+          <span key={index} style={styles.noteText}>{token}</span>
+        );
+      } else {
+        parts.push(
+          <React.Fragment key={index}>{token}</React.Fragment>
+        );
+      }
+    });
+
+    return parts;
   };
 
   if (screen === 'menu') {
@@ -210,7 +253,7 @@ export default function App() {
           <div style={styles.mainContent}>
             <div>
               <h2 style={styles.sectionTitle}>События</h2>
-              <p style={styles.storyText}>"{storyText}"</p>
+              <div style={styles.storyText}>"{renderStoryText(storyText)}"</div>
             </div>
             <form onSubmit={handleVisitLocation} style={styles.form}>
               <input type="text" value={inputCode} onChange={(e) => setInputCode(e.target.value)} placeholder="Код..." style={styles.input} />
