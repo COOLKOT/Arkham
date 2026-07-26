@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ALL_SCENARIOS } from './scenarios';
 import './index.css';
 
@@ -32,14 +32,47 @@ const styles = {
   secondaryButton: { backgroundColor: 'transparent', color: '#a8a29e', border: '1px solid #57534e', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontSize: '14px', marginTop: '16px', width: '100%', textAlign: 'center' }
 };
 
+function formatTime(sec) {
+  if (!sec || isNaN(sec)) return '0:00';
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+const DEFAULT_QUESTIONS = [
+  'Опишите, что вы узнали в ходе расследования.',
+  'Какие улики вы считаете ключевыми?',
+  'Предложите возможную причину произошедшего.'
+];
+
 export default function App() {
   const [screen, setScreen] = useState('menu');
   const [activeScenario, setActiveScenario] = useState(null);
   const [currentTime, setCurrentTime] = useState(0);
+  const [declaredTrips, setDeclaredTrips] = useState(null);
+  const [tripInput, setTripInput] = useState('');
+  const [pendingScenario, setPendingScenario] = useState(null);
   const [visitedLocations, setVisitedLocations] = useState([]);
   const [inputCode, setInputCode] = useState('');
   const [storyText, setStoryText] = useState('');
-    // Флаг, который показывает, есть ли в памяти сохраненная игра
+  const [questionsList, setQuestionsList] = useState([]);
+  const [questionsAnswers, setQuestionsAnswers] = useState({});
+  const audioRef = useRef(null);
+  const [audioAvailable, setAudioAvailable] = useState(false);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [audioCurrent, setAudioCurrent] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const finalAudioRef = useRef(null);
+  const [finalAudioAvailable, setFinalAudioAvailable] = useState(false);
+  const [finalAudioDuration, setFinalAudioDuration] = useState(0);
+  const [finalAudioCurrent, setFinalAudioCurrent] = useState(0);
+  const [finalIsPlaying, setFinalIsPlaying] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [finalScore, setFinalScore] = useState(null);
+  const [finalInsanity, setFinalInsanity] = useState('');
+  const [finalVisitedSummary, setFinalVisitedSummary] = useState('');
+  const [finalEndingText, setFinalEndingText] = useState('');
+  // Флаг, который показывает, есть ли в памяти сохраненная игра
   const [hasSavedGame, setHasSavedGame] = useState(false);
 
   // 1. АВТОМАТИЧЕСКАЯ ПРОВЕРКА СОХРАНЕНИЙ ПРИ СТАРТЕ ПРИЛОЖЕНИЯ
@@ -50,13 +83,14 @@ export default function App() {
     }
   }, []);
 
-  // 2. ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ДАННЫХ ИЗ ПАМЯТИ БРАУЗЕРА
+  // 2. ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ДАННЫХ ИЗ ПАМЯТНИКА БРАУЗЕРА
   const loadGame = () => {
     const saved = localStorage.getItem('arkham_save');
     if (saved) {
       const gameData = JSON.parse(saved);
       setActiveScenario(gameData.activeScenario);
       setCurrentTime(gameData.currentTime);
+      setDeclaredTrips(gameData.declaredTrips ?? null);
       setVisitedLocations(gameData.visitedLocations);
       setStoryText(gameData.storyText);
       setScreen('game');
@@ -69,34 +103,81 @@ export default function App() {
       const gameData = {
         activeScenario,
         currentTime,
+        declaredTrips,
         visitedLocations,
         storyText
       };
       localStorage.setItem('arkham_save', JSON.stringify(gameData));
       setHasSavedGame(true);
     }
-  }, [screen, activeScenario, currentTime, visitedLocations, storyText]);
+  }, [screen, activeScenario, currentTime, declaredTrips, visitedLocations, storyText]);
 
-  const startScenario = (scenario) => {
+  useEffect(() => {
+    if (screen === 'final' && finalAudioRef.current) {
+      try {
+        finalAudioRef.current.load();
+        finalAudioRef.current.pause();
+        finalAudioRef.current.currentTime = 0;
+        setFinalIsPlaying(false);
+        setFinalAudioCurrent(0);
+      } catch (e) {}
+    }
+  }, [screen, activeScenario]);
+
+  const prepareScenario = (scenario) => {
+    setPendingScenario(scenario);
+    setTripInput('');
+    setScreen('trip_prompt');
+  };
+
+  const startScenario = (scenario, tripBudget) => {
     setActiveScenario(scenario);
     setCurrentTime(0);
+    setDeclaredTrips(tripBudget);
     setVisitedLocations([]);
     setStoryText(scenario.paragraphs["start"]);
     setScreen('game');
+    setPendingScenario(null);
+    // Не автозапускаем аудио — по умолчанию состояние стоп
+    try {
+      if (audioRef.current) {
+        audioRef.current.load();
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+    } catch (e) {}
+    setIsPlaying(false);
+    setAudioCurrent(0);
+    setAudioDuration(0);
+    setQuestionsList(scenario.questions || DEFAULT_QUESTIONS);
+    setQuestionsAnswers({});
+  };
+
+  const confirmTripBudget = () => {
+    if (!pendingScenario) return;
+    const trips = parseInt(tripInput, 10);
+    if (Number.isNaN(trips) || trips <= 0) {
+      alert('Введите корректное количество поездок (положительное число).');
+      return;
+    }
+    startScenario(pendingScenario, trips);
   };
 
   const handleVisitLocation = (e) => {
     e.preventDefault();
     const code = inputCode.trim();
-    if (!activeScenario.paragraphs[code]) {
+    // Найдём ключ в paragraphs без учёта регистра (поддерживает кириллицу и латиницу)
+    const paragraphs = activeScenario.paragraphs || {};
+    const matchedKey = Object.keys(paragraphs).find(k => String(k).toLowerCase() === String(code).toLowerCase());
+    if (!matchedKey) {
       alert("Такого адреса нет!");
       return;
     }
-    if (currentTime >= activeScenario.maxTime) {
-      alert("Время истекло!");
+    if (declaredTrips !== null && currentTime >= declaredTrips) {
+      alert("Вы уже выполнили количество поездок, введенное в начале дела.");
       return;
     }
-    const textOnLocation = activeScenario.paragraphs[code];
+    const textOnLocation = paragraphs[matchedKey];
     setCurrentTime(prev => prev + 1);
     setVisitedLocations(prev => [...prev, { code: code, text: textOnLocation }]);
     setStoryText(textOnLocation);
@@ -135,13 +216,107 @@ export default function App() {
           <span key={index} style={styles.noteText}>{token}</span>
         );
       } else {
-        parts.push(
-          <React.Fragment key={index}>{token}</React.Fragment>
-        );
+          // If the token contains an HTML image tag, inject responsive styles and render it as HTML
+          if (/<img\s+/.test(token)) {
+            const html = token.replace(/<img\b([^>]*)>/i, (match, attrs) => {
+              // If img already has a style attribute, append responsive rules; otherwise add a new style
+              if (/style\s*=/.test(attrs)) {
+                return `<img ${attrs.replace(/style=(['"])(.*?)\1/i, (m, q, s) => `style=${q}${s};max-width:100%;height:auto;display:block;margin:12px auto;${q}`)}>`;
+              }
+              return `<img ${attrs} style="max-width:100%;height:auto;display:block;margin:12px auto;">`;
+            });
+            parts.push(
+              <span key={index} dangerouslySetInnerHTML={{ __html: html }} />
+            );
+          } else {
+            parts.push(
+              <React.Fragment key={index}>{token}</React.Fragment>
+            );
+          }
       }
     });
 
     return parts;
+  };
+
+  const scoreAnswerByRule = (answer, rule) => {
+    const text = String(answer || '').toLowerCase();
+    if (!text.trim() || !rule || !Array.isArray(rule.keywords)) return 0;
+
+    const matched = rule.keywords.some((keyword) => text.includes(keyword.toLowerCase()));
+    if (matched) {
+      return rule.points || 0;
+    }
+
+    if (rule.fallback && Array.isArray(rule.fallback.keywords)) {
+      const fallbackMatched = rule.fallback.keywords.some((keyword) => text.includes(keyword.toLowerCase()));
+      if (fallbackMatched) return rule.fallback.points || 0;
+    }
+    return 0;
+  };
+
+  const calculateFinalScore = () => {
+    let score = 0;
+    if (activeScenario && Array.isArray(activeScenario.answerRules)) {
+      activeScenario.answerRules.forEach((rule, idx) => {
+        score += scoreAnswerByRule(questionsAnswers[idx], rule);
+      });
+    }
+
+    if (activeScenario && typeof activeScenario.armitageTrips === 'number') {
+      const extraTrips = Math.max(0, currentTime - activeScenario.armitageTrips);
+      score -= extraTrips;
+    }
+
+    if (activeScenario && activeScenario.id === 1) {
+      if (visitedLocations.some((loc) => String(loc.code).toUpperCase() === 'А67')) {
+        score -= 1;
+      }
+    }
+
+    return Math.max(0, score);
+  };
+
+  const getInsanityText = () => {
+    const codes = visitedLocations.map((loc) => String(loc.code).toUpperCase());
+    if (codes.includes('А67')) {
+      return 'Если вы посетили парк Аптауна (А67) и видели Тёмную Молодь, вы теряете одно очко. Вы испытали душевное потрясение и очень стараетесь убедить себя, что это была лишь игра воображения';
+    }
+  };
+
+  const getFinalEndingText = (score) => {
+    const endings = activeScenario?.endings;
+    if (!Array.isArray(endings) || endings.length === 0) {
+      return '';
+    }
+    const sortedEndings = [...endings].sort((a, b) => b.minScore - a.minScore);
+    const matched = sortedEndings.find((ending) => score >= ending.minScore);
+    return matched ? matched.text : '';
+  };
+
+  const getVisitedAddressesSummary = (score) => {
+    if (!visitedLocations.length) {
+      return 'Вы не посетили ни одного адреса.';
+    }
+
+    const addresses = visitedLocations.map((loc) => loc.code.toUpperCase());
+    if (score < 8) {
+      return `По баллам вам удалось сохранить в памяти только самые важные адреса: ${addresses.slice(0, 1).join(', ')}.`;
+    }
+    if (score < 15) {
+      return `Вы запомнили несколько адресов: ${addresses.slice(0, 3).join(', ')}.`;
+    }
+    return `Вы хорошо вспомнили посещённые адреса: ${addresses.join(', ')}.`;
+  };
+
+  const finalizeAnswers = () => {
+    const score = calculateFinalScore();
+    setFinalScore(score);
+    setFinalInsanity(getInsanityText());
+    setFinalVisitedSummary(getVisitedAddressesSummary(score));
+    setFinalEndingText(getFinalEndingText(score));
+    setShowConfirm(false);
+    setScreen('final');
   };
 
   if (screen === 'menu') {
@@ -189,13 +364,187 @@ export default function App() {
         <div style={styles.scenariosList}>
           <h2 style={styles.sectionTitle}>Выберите расследование</h2>
           {ALL_SCENARIOS.map((scen) => (
-            <div key={scen.id} style={styles.scenarioCard} onClick={() => startScenario(scen)}>
+            <div key={scen.id} style={styles.scenarioCard} onClick={() => prepareScenario(scen)}>
               <div style={styles.scenarioTitle}>{scen.title}</div>
               <div style={styles.scenarioDesc}>{scen.description}</div>
               <div style={{ fontSize: '12px', color: '#a8a29e', marginTop: '8px' }}>Лимит времени: {scen.maxTime} ч.</div>
             </div>
           ))}
           <button style={{ ...styles.actionButton, marginTop: '16px' }} onClick={() => setScreen('menu')}>Назад</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === 'trip_prompt') {
+    return (
+      <div style={styles.container}>
+        <div style={styles.textBlock}>
+          <h2 style={styles.sectionTitle}>Введите количество поездок</h2>
+          <p style={styles.instructionText}>
+            Введите, сколько поездок вы готовы совершить по делу.
+            Если вы превысите лимит Армитеджа, за каждый лишний адрес будет сниматься по одному очку.
+          </p>
+          {pendingScenario && (
+            <div style={{ marginBottom: 16, color: '#fbbf24', fontSize: 16 }}>
+              Поездки Армитеджа: {pendingScenario.armitageTrips}
+            </div>
+          )}
+          {pendingScenario && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ color: '#fbbf24', fontSize: '18px', marginBottom: 6 }}>{pendingScenario.title}</div>
+              <div style={{ color: '#d6d3d1', marginBottom: 10 }}>{pendingScenario.description}</div>
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 12, flexDirection: 'column' }}>
+            <input
+              type="number"
+              min="1"
+              value={tripInput}
+              onChange={(e) => setTripInput(e.target.value)}
+              placeholder="Введите количество поездок из блока 'Сложность дела'"
+              style={styles.input}
+            />
+            <button style={styles.actionButton} onClick={confirmTripBudget}>Начать дело</button>
+            <button style={styles.secondaryButton} onClick={() => setScreen('select_case')}>Назад к выбору дела</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === 'questions') {
+    return (
+      <div style={styles.container}>
+        <div style={styles.textBlock}>
+          <h2 style={styles.sectionTitle}>Вопросы по делу</h2>
+          <div style={{ marginBottom: 16 }}>
+            {questionsList.map((q, idx) => (
+              <div key={idx} style={{ marginBottom: 12 }}>
+                <div style={{ color: '#a8a29e', marginBottom: 6 }}>{idx + 1}. {q}</div>
+                <input
+                  type="text"
+                  value={questionsAnswers[idx] || ''}
+                  onChange={(e) => setQuestionsAnswers(prev => ({ ...prev, [idx]: e.target.value }))}
+                  style={styles.input}
+                />
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 12, flexDirection: 'column' }}>
+            <button
+              style={styles.actionButton}
+              onClick={() => {
+                try {
+                  if (activeScenario) {
+                    localStorage.setItem(`arkham_answers_${activeScenario.id}`, JSON.stringify(questionsAnswers));
+                  }
+                } catch (e) {}
+                setShowConfirm(true);
+              }}
+            >Сохранить ответы</button>
+            <button style={styles.secondaryButton} onClick={() => setScreen('menu')}>Назад в меню</button>
+          </div>
+          {showConfirm && (
+            <div style={{ marginTop: 20, padding: 18, border: '1px solid #fbbf24', borderRadius: 8, backgroundColor: '#1f1b18' }}>
+              <div style={{ marginBottom: 12, color: '#f1f5f9' }}>Ответы сохранены. Хотите подтвердить и перейти к итоговой проверке?</div>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <button style={styles.actionButton} onClick={finalizeAnswers}>Подтвердить и проверить</button>
+                <button style={styles.secondaryButton} onClick={() => setShowConfirm(false)}>Отменить</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === 'final') {
+    return (
+      <div style={styles.container}>
+        <div style={styles.textBlock}>
+          <h2 style={styles.sectionTitle}>Итоги расследования</h2>
+          <div style={{ marginBottom: 16 }}>
+            <h3 style={{ marginBottom: 8, color: '#fbbf24' }}>Аудиоплеер развязки</h3>
+            <button
+              type="button"
+              style={{ ...styles.actionButton, padding: '8px 16px', fontSize: '14px', width: '100%' }}
+              onClick={() => {
+                try {
+                  if (!finalAudioRef.current || !finalAudioAvailable) {
+                    alert('Аудиофайл развязки не найден: поместите файл в папку public/music с нужным именем');
+                    return;
+                  }
+                  if (finalIsPlaying) {
+                    finalAudioRef.current.pause();
+                  } else {
+                    finalAudioRef.current.play().catch(() => {});
+                  }
+                } catch (e) {}
+              }}
+            >
+              {finalIsPlaying ? '⏸️ Остановить развязку' : '▶️ Воспроизвести развязку'}
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+              <input
+                type="range"
+                min={0}
+                max={finalAudioDuration || 0}
+                step={0.1}
+                value={finalAudioCurrent}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  if (finalAudioRef.current) finalAudioRef.current.currentTime = v;
+                  setFinalAudioCurrent(v);
+                }}
+                style={{ flex: 1 }}
+              />
+              <div style={{ minWidth: 80, textAlign: 'right', fontSize: 12 }}>
+                {formatTime(finalAudioCurrent)} / {formatTime(finalAudioDuration)}
+              </div>
+            </div>
+          </div>
+          {finalEndingText && (
+            <div style={{ marginBottom: 16 }}>
+              <h3 style={{ marginBottom: 8, color: '#fbbf24' }}>Развязка дела</h3>
+              <p style={{ color: '#d6d3d1', lineHeight: 1.7 }}>{finalEndingText}</p>
+            </div>
+          )}
+          <div style={{ marginBottom: 16 }}>
+            <h3 style={{ marginBottom: 8, color: '#fbbf24' }}>Потеря рассудка</h3>
+            <p style={{ color: '#d6d3d1', lineHeight: 1.7 }}>{finalInsanity}</p>
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <h3 style={{ marginBottom: 8, color: '#fbbf24' }}>Посещённые адреса</h3>
+            <p style={{ color: '#d6d3d1', lineHeight: 1.7 }}>{finalVisitedSummary}</p>
+          </div>
+          <div style={{ marginBottom: 24 }}>
+            <h3 style={{ marginBottom: 8, color: '#fbbf24' }}>Баллы</h3>
+            <p style={{ color: '#d6d3d1', fontSize: 18, fontWeight: 'bold' }}>{finalScore}</p>
+          </div>
+          <div style={{ display: 'flex', gap: 12, flexDirection: 'column' }}>
+            <button style={styles.actionButton} onClick={() => setScreen('menu')}>Вернуться в меню</button>
+            <button style={styles.secondaryButton} onClick={() => setScreen('select_case')}>Выбрать новое дело</button>
+          </div>
+          <audio
+            ref={finalAudioRef}
+            src={activeScenario ? (activeScenario.finalAudio || `/music/${activeScenario.id}-final.mp3`) : ''}
+            preload="auto"
+            onLoadedMetadata={() => {
+              if (!finalAudioRef.current) return;
+              setFinalAudioDuration(finalAudioRef.current.duration || 0);
+              setFinalAudioAvailable(true);
+            }}
+            onError={() => setFinalAudioAvailable(false)}
+            onTimeUpdate={() => {
+              if (!finalAudioRef.current) return;
+              setFinalAudioCurrent(finalAudioRef.current.currentTime || 0);
+            }}
+            onPlay={() => setFinalIsPlaying(true)}
+            onPause={() => setFinalIsPlaying(false)}
+            onEnded={() => setFinalIsPlaying(false)}
+            style={{ display: 'none' }}
+          />
         </div>
       </div>
     );
@@ -211,8 +560,48 @@ export default function App() {
           <div style={styles.sidebar}>
             <h2 style={styles.sectionTitle}>Журнал</h2>
             <div style={{ marginBottom: '16px' }}>
-              <span style={{ color: '#a8a29e' }}>Время:</span>
-              <span style={styles.timeText}>{currentTime} / {activeScenario.maxTime} ч.</span>
+              <span style={{ color: '#a8a29e' }}>Количество поездок:</span>
+              <span style={styles.timeText}>{currentTime}{declaredTrips !== null ? ` / ${declaredTrips}` : ''}</span>
+            </div>
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ color: '#a8a29e', fontSize: '16px', marginBottom: '8px' }}>Аудиоплеер</h3>
+              <button
+                type="button"
+                style={{ ...styles.actionButton, padding: '8px 16px', fontSize: '14px', width: '100%' }}
+                onClick={() => {
+                  try {
+                    if (!audioRef.current || !audioAvailable) {
+                      alert('Аудиофайл не найден: поместите файл в папку public/music с именем {id}.mp3');
+                      return;
+                    }
+                    if (isPlaying) {
+                      audioRef.current.pause();
+                    } else {
+                      audioRef.current.play().catch(() => {});
+                    }
+                  } catch (e) {}
+                }}
+              >
+                {isPlaying ? '⏸️ Остановить' : '▶️ Вступление к делу'}
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                <input
+                  type="range"
+                  min={0}
+                  max={audioDuration || 0}
+                  step={0.1}
+                  value={audioCurrent}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    if (audioRef.current) audioRef.current.currentTime = v;
+                    setAudioCurrent(v);
+                  }}
+                  style={{ flex: 1 }}
+                />
+                <div style={{ minWidth: 80, textAlign: 'right', fontSize: 12 }}>
+                  {formatTime(audioCurrent)} / {formatTime(audioDuration)}
+                </div>
+              </div>
             </div>
             <div>
               <h3 style={{ color: '#a8a29e', fontSize: '16px', marginBottom: '8px' }}>Посещено:</h3>
@@ -224,11 +613,10 @@ export default function App() {
                 ))}
               </div>
             </div>
-                        {/* Кнопка безопасного выхода с сохранением прогресса */}
+            {/* Кнопка безопасного выхода с сохранением прогресса */}
             <button 
               style={{ ...styles.secondaryButton, backgroundColor: '#44403c', color: '#fef3c7', marginBottom: '8px', border: '1px solid #78350f' }} 
               onClick={() => {
-                // Просто уходим в меню. Фоновый автосохранятор уже всё записал!
                 setScreen('menu');
               }}
             >
@@ -251,14 +639,43 @@ export default function App() {
             </button>
           </div>
           <div style={styles.mainContent}>
+            {/* Скрытый audio-элемент: источник обновляется при выборе дела */}
+            <audio
+              ref={audioRef}
+              src={activeScenario ? `/music/${activeScenario.id}.mp3` : ''}
+              preload="auto"
+              onLoadedMetadata={() => {
+                if (!audioRef.current) return;
+                setAudioDuration(audioRef.current.duration || 0);
+                setAudioAvailable(true);
+              }}
+              onError={() => setAudioAvailable(false)}
+              onTimeUpdate={() => {
+                if (!audioRef.current) return;
+                setAudioCurrent(audioRef.current.currentTime || 0);
+              }}
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onEnded={() => setIsPlaying(false)}
+              style={{ display: 'none' }}
+            />
             <div>
               <h2 style={styles.sectionTitle}>События</h2>
-              <div style={styles.storyText}>"{renderStoryText(storyText)}"</div>
+              <div style={styles.storyText}>{renderStoryText(storyText)}</div>
+              <div style={{ marginTop: '12px' }}>
+                <form onSubmit={handleVisitLocation} style={styles.form}>
+                  <input type="text" value={inputCode} onChange={(e) => setInputCode(e.target.value)} placeholder="Код..." style={styles.input} disabled={activeScenario && currentTime >= (declaredTrips ?? activeScenario.maxTime)} />
+                  <button type="submit" style={styles.actionButton} disabled={activeScenario && currentTime >= (declaredTrips ?? activeScenario.maxTime)}>Идти туда</button>
+                  {activeScenario && currentTime >= (declaredTrips ?? activeScenario.maxTime) && (
+                    <button
+                      type="button"
+                      style={{ ...styles.secondaryButton, marginLeft: 8 }}
+                      onClick={() => setScreen('questions')}
+                    >Перейти к вопросам</button>
+                  )}
+                </form>
+              </div>
             </div>
-            <form onSubmit={handleVisitLocation} style={styles.form}>
-              <input type="text" value={inputCode} onChange={(e) => setInputCode(e.target.value)} placeholder="Код..." style={styles.input} />
-              <button type="submit" style={styles.actionButton}>Идти туда</button>
-            </form>
           </div>
         </div>
       </div>
