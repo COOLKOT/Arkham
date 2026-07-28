@@ -41,12 +41,6 @@ function formatTime(sec) {
   return `${m}:${s}`;
 }
 
-const DEFAULT_QUESTIONS = [
-  'Опишите, что вы узнали в ходе расследования.',
-  'Какие улики вы считаете ключевыми?',
-  'Предложите возможную причину произошедшего.'
-];
-
 export default function App() {
   const [screen, setScreen] = useState('menu');
   const [activeScenario, setActiveScenario] = useState(null);
@@ -72,36 +66,11 @@ export default function App() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [finalScore, setFinalScore] = useState(null);
   const [finalInsanity, setFinalInsanity] = useState('');
-  const [finalVisitedSummary, setFinalVisitedSummary] = useState('');
   const [finalEndingText, setFinalEndingText] = useState('');
-  // Флаг, который показывает, есть ли в памяти сохраненная игра
-  const [hasSavedGame, setHasSavedGame] = useState(false);
   const [showAddressBook, setShowAddressBook] = useState(false);
   const inputCodeRef = useRef(null);
 
-  // 1. АВТОМАТИЧЕСКАЯ ПРОВЕРКА СОХРАНЕНИЙ ПРИ СТАРТЕ ПРИЛОЖЕНИЯ
-  useEffect(() => {
-    const saved = localStorage.getItem('arkham_save');
-    if (saved) {
-      setHasSavedGame(true);
-    }
-  }, []);
-
-  // 2. ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ДАННЫХ ИЗ ПАМЯТНИКА БРАУЗЕРА
-  const loadGame = () => {
-    const saved = localStorage.getItem('arkham_save');
-    if (saved) {
-      const gameData = JSON.parse(saved);
-      setActiveScenario(gameData.activeScenario);
-      setCurrentTime(gameData.currentTime);
-      setDeclaredTrips(gameData.declaredTrips ?? null);
-      setVisitedLocations(gameData.visitedLocations);
-      setStoryText(gameData.storyText);
-      setScreen('game');
-    }
-  };
-
-  // 3. АВТОСОХРАНЕНИЕ: ПРИ КАЖДОМ ХОДЕ ДАННЫЕ ЗАПИСЫВАЮТСЯ В ПАМЯТЬ
+  // АВТОСОХРАНЕНИЕ: ПРИ КАЖДОМ ХОДЕ ДАННЫЕ ЗАПИСЫВАЮТСЯ В ПАМЯТЬ
   useEffect(() => {
     if (screen === 'game' && activeScenario) {
       const gameData = {
@@ -112,21 +81,36 @@ export default function App() {
         storyText
       };
       localStorage.setItem('arkham_save', JSON.stringify(gameData));
-      setHasSavedGame(true);
     }
-  }, [screen, activeScenario, currentTime, declaredTrips, visitedLocations, storyText]);
+  }, [screen, activeScenario, currentTime, declaredTrips, visitedLocations]);
+
+  // Перезагружаем аудио при смене дела
+  useEffect(() => {
+    if (audioRef.current && activeScenario) {
+      audioRef.current.src = `/music/${activeScenario.id}.mp3`;
+      audioRef.current.load();
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
+      setAudioCurrent(0);
+      setAudioDuration(0);
+      setAudioAvailable(false);
+    }
+  }, [activeScenario]);
 
   useEffect(() => {
-    if (screen === 'final' && finalAudioRef.current) {
-      try {
-        finalAudioRef.current.load();
-        finalAudioRef.current.pause();
-        finalAudioRef.current.currentTime = 0;
-        setFinalIsPlaying(false);
-        setFinalAudioCurrent(0);
-      } catch (e) {}
+    if (finalAudioRef.current && activeScenario) {
+      const src = activeScenario.finalAudio || `/music/${activeScenario.id}-final.mp3`;
+      finalAudioRef.current.src = src;
+      finalAudioRef.current.load();
+      finalAudioRef.current.pause();
+      finalAudioRef.current.currentTime = 0;
+      setFinalIsPlaying(false);
+      setFinalAudioCurrent(0);
+      setFinalAudioDuration(0);
+      setFinalAudioAvailable(false);
     }
-  }, [screen, activeScenario]);
+  }, [activeScenario]);
 
   const prepareScenario = (scenario) => {
     setPendingScenario(scenario);
@@ -142,17 +126,7 @@ export default function App() {
     setStoryText(scenario.paragraphs["start"]);
     setScreen('game');
     setPendingScenario(null);
-    try {
-      if (audioRef.current) {
-        audioRef.current.load();
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-      }
-    } catch (e) {}
-    setIsPlaying(false);
-    setAudioCurrent(0);
-    setAudioDuration(0);
-    setQuestionsList(scenario.questions || DEFAULT_QUESTIONS);
+    setQuestionsList(scenario.questions);
     setQuestionsAnswers({});
   };
 
@@ -172,7 +146,7 @@ export default function App() {
     const paragraphs = activeScenario.paragraphs || {};
     const matchedKey = Object.keys(paragraphs).find(k => String(k).toLowerCase() === String(code).toLowerCase());
     if (!matchedKey) {
-      alert("Такого адреса нет!");
+      alert("По этому адресу нет информации");
       return;
     }
     const maxTrips = declaredTrips ?? activeScenario?.armitageTrips;
@@ -242,17 +216,13 @@ export default function App() {
     return parts;
   };
 
-  const scoreAnswerByRule = (answer, rule, questionText) => {
-    return evaluateAnswer(answer, rule, questionText);
-  };
-
   const calculateFinalScore = () => {
     let score = 0;
     if (activeScenario && Array.isArray(activeScenario.answerRules)) {
       for (let idx = 0; idx < activeScenario.answerRules.length; idx++) {
         const rule = activeScenario.answerRules[idx];
         const questionText = activeScenario.questions?.[idx] || '';
-        score += scoreAnswerByRule(questionsAnswers[idx], rule, questionText);
+        score += evaluateAnswer(questionsAnswers[idx], rule, questionText);
       }
     }
 
@@ -275,6 +245,7 @@ export default function App() {
     if (codes.includes('А67')) {
       return 'Если вы посетили парк Аптауна (А67) и видели Тёмную Молодь, вы теряете одно очко. Вы испытали душевное потрясение и очень стараетесь убедить себя, что это была лишь игра воображения';
     }
+    return '';
   };
 
   const getFinalEndingText = (score) => {
@@ -287,26 +258,10 @@ export default function App() {
     return matched ? matched.text : '';
   };
 
-  const getVisitedAddressesSummary = (score) => {
-    if (!visitedLocations.length) {
-      return 'Вы не посетили ни одного адреса.';
-    }
-
-    const addresses = visitedLocations.map((loc) => loc.code.toUpperCase());
-    if (score < 8) {
-      return `По баллам вам удалось сохранить в памяти только самые важные адреса: ${addresses.slice(0, 1).join(', ')}.`;
-    }
-    if (score < 15) {
-      return `Вы запомнили несколько адресов: ${addresses.slice(0, 3).join(', ')}.`;
-    }
-    return `Вы хорошо вспомнили посещённые адреса: ${addresses.join(', ')}.`;
-  };
-
   const finalizeAnswers = () => {
     const score = calculateFinalScore();
     setFinalScore(score);
     setFinalInsanity(getInsanityText());
-    setFinalVisitedSummary(getVisitedAddressesSummary(score));
     setFinalEndingText(getFinalEndingText(score));
     setShowConfirm(false);
     setScreen('final');
@@ -325,16 +280,6 @@ export default function App() {
         <div style={styles.menuBox}>
           <h1 style={styles.menuTitle}>Тайны Аркхэма</h1>
           <p style={styles.menuSubtitle}>Цифровой помощник сыщика</p>
-                    {/* Зеленая кнопка «Продолжить» появляется только при наличии сохранения */}
-          {hasSavedGame && (
-            <button 
-              style={{ ...styles.menuButton, backgroundColor: '#10b981', color: '#fff' }} 
-              onClick={loadGame}
-            >
-              Продолжить игру ⏳
-            </button>
-          )}
-
           <button style={styles.menuButton} onClick={() => setScreen('select_case')}>Выбрать Дело</button>
           <button style={styles.menuButton} onClick={() => setScreen('instruction')}>Инструкция</button>
         </div>
@@ -367,8 +312,6 @@ export default function App() {
             <div key={scen.id} style={styles.scenarioCard} onClick={() => prepareScenario(scen)}>
               <div style={styles.scenarioTitle}>{scen.title}</div>
               <div style={styles.scenarioDesc}>{scen.description}</div>
-              <div style={{ fontSize: '12px', color: '#a8a29e', marginTop: '8px' }}>
-              </div>
             </div>
           ))}
           <button style={{ ...styles.actionButton, marginTop: '16px' }} onClick={() => setScreen('menu')}>Назад</button>
@@ -507,7 +450,7 @@ export default function App() {
           </div>
           {finalEndingText && (
             <div style={{ marginBottom: 16 }}>
-              <h3 style={{ marginBottom: 8, color: '#fbbf24' }}>Развязка дела</h3>
+              <h3 style={{ marginBottom: 8, color: '#fbbf24' }}>Дело раскрыто!</h3>
               <p style={{ color: '#d6d3d1', lineHeight: 1.7 }}>{finalEndingText}</p>
             </div>
           )}
@@ -516,10 +459,6 @@ export default function App() {
             <p style={{ color: '#d6d3d1', lineHeight: 1.7 }}>{finalInsanity}</p>
           </div>
           <div style={{ marginBottom: 16 }}>
-            <h3 style={{ marginBottom: 8, color: '#fbbf24' }}>Посещённые адреса</h3>
-            <p style={{ color: '#d6d3d1', lineHeight: 1.7 }}>{finalVisitedSummary}</p>
-          </div>
-          <div style={{ marginBottom: 24 }}>
             <h3 style={{ marginBottom: 8, color: '#fbbf24' }}>Баллы</h3>
             <p style={{ color: '#d6d3d1', fontSize: 18, fontWeight: 'bold' }}>{finalScore}</p>
           </div>
@@ -628,23 +567,14 @@ export default function App() {
                 }
               }}
             >
-              📝 Завершить дело
+              📝 Перейти к ответам
             </button>
             {/* Кнопка безопасного выхода с сохранением прогресса */}
             <button 
-              style={{ ...styles.secondaryButton, backgroundColor: '#44403c', color: '#fef3c7', marginBottom: '8px', border: '1px solid #78350f' }} 
-              onClick={() => {
-                setScreen('menu');
-              }}
-            >
-              💾 Выйти в меню (Сохранить)
-            </button>
-            <button 
               style={styles.secondaryButton} 
               onClick={() => {
-                if (window.confirm("Вы уверены, что хотите выйти? Прогресс текущего дела будет полностью стерт.")) {
+                if (window.confirm("Вы хотите завершить дело и перейти к меню?")) {
                   localStorage.removeItem('arkham_save');
-                  setHasSavedGame(false);
                   setActiveScenario(null);
                   setVisitedLocations([]);
                   setCurrentTime(0);
@@ -680,25 +610,30 @@ export default function App() {
               <h2 style={styles.sectionTitle}>События</h2>
               <div style={styles.storyText}>{renderStoryText(storyText)}</div>
               <div style={{ marginTop: '12px' }}>
-                <form onSubmit={handleVisitLocation} style={styles.form}>
-                  <input
-                    type="text"
-                    value={inputCode}
-                    onChange={(e) => setInputCode(e.target.value)}
-                    placeholder="Код..."
-                    style={styles.input}
-                    disabled={activeScenario && declaredTrips !== null && currentTime >= declaredTrips}
-                    ref={inputCodeRef}
-                  />
-                  <button type="submit" style={styles.actionButton} disabled={activeScenario && declaredTrips !== null && currentTime >= declaredTrips}>Идти туда</button>
-                  {activeScenario && declaredTrips !== null && currentTime >= declaredTrips && (
-                    <button
-                      type="button"
-                      style={{ ...styles.secondaryButton, marginLeft: 8 }}
-                      onClick={() => setScreen('questions')}
-                    >Перейти к вопросам</button>
-                  )}
-                </form>
+                {(() => {
+                  const tripsExceeded = activeScenario && declaredTrips !== null && currentTime >= declaredTrips;
+                  return (
+                  <form onSubmit={handleVisitLocation} style={styles.form}>
+                    <input
+                      type="text"
+                      value={inputCode}
+                      onChange={(e) => setInputCode(e.target.value)}
+                      placeholder="Код..."
+                      style={styles.input}
+                      disabled={tripsExceeded}
+                      ref={inputCodeRef}
+                    />
+                    <button type="submit" style={styles.actionButton} disabled={tripsExceeded}>Идти туда</button>
+                    {tripsExceeded && (
+                      <button
+                        type="button"
+                        style={{ ...styles.secondaryButton, marginLeft: 8 }}
+                        onClick={() => setScreen('questions')}
+                      >Перейти к вопросам</button>
+                    )}
+                  </form>
+                  );
+                })()}
               </div>
             </div>
           </div>

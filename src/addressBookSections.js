@@ -500,7 +500,7 @@ export const ADDRESS_BOOK_SECTIONS = [
     ]
   },
   {
-    name: "Секция К",
+    name: "Секция Л",
     entries: [
       { name: "Лабелла Д.", code: "Д86" },
       { name: "Лаборатория им. Чарльза Тайнера", code: "У13" },
