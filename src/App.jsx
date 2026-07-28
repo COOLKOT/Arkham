@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ALL_SCENARIOS } from './scenarios';
+import { evaluateAnswer } from './answerValidator';
+import AddressBookPanel from './components/AddressBookPanel';
 import './index.css';
 
 const styles = {
@@ -74,6 +76,8 @@ export default function App() {
   const [finalEndingText, setFinalEndingText] = useState('');
   // Флаг, который показывает, есть ли в памяти сохраненная игра
   const [hasSavedGame, setHasSavedGame] = useState(false);
+  const [showAddressBook, setShowAddressBook] = useState(false);
+  const inputCodeRef = useRef(null);
 
   // 1. АВТОМАТИЧЕСКАЯ ПРОВЕРКА СОХРАНЕНИЙ ПРИ СТАРТЕ ПРИЛОЖЕНИЯ
   useEffect(() => {
@@ -138,7 +142,6 @@ export default function App() {
     setStoryText(scenario.paragraphs["start"]);
     setScreen('game');
     setPendingScenario(null);
-    // Не автозапускаем аудио — по умолчанию состояние стоп
     try {
       if (audioRef.current) {
         audioRef.current.load();
@@ -166,15 +169,15 @@ export default function App() {
   const handleVisitLocation = (e) => {
     e.preventDefault();
     const code = inputCode.trim();
-    // Найдём ключ в paragraphs без учёта регистра (поддерживает кириллицу и латиницу)
     const paragraphs = activeScenario.paragraphs || {};
     const matchedKey = Object.keys(paragraphs).find(k => String(k).toLowerCase() === String(code).toLowerCase());
     if (!matchedKey) {
       alert("Такого адреса нет!");
       return;
     }
-    if (declaredTrips !== null && currentTime >= declaredTrips) {
-      alert("Вы уже выполнили количество поездок, введенное в начале дела.");
+    const maxTrips = declaredTrips ?? activeScenario?.armitageTrips;
+    if (maxTrips !== undefined && currentTime >= maxTrips) {
+      alert("Вы уже выполнили лимит поездок.");
       return;
     }
     const textOnLocation = paragraphs[matchedKey];
@@ -239,28 +242,18 @@ export default function App() {
     return parts;
   };
 
-  const scoreAnswerByRule = (answer, rule) => {
-    const text = String(answer || '').toLowerCase();
-    if (!text.trim() || !rule || !Array.isArray(rule.keywords)) return 0;
-
-    const matched = rule.keywords.some((keyword) => text.includes(keyword.toLowerCase()));
-    if (matched) {
-      return rule.points || 0;
-    }
-
-    if (rule.fallback && Array.isArray(rule.fallback.keywords)) {
-      const fallbackMatched = rule.fallback.keywords.some((keyword) => text.includes(keyword.toLowerCase()));
-      if (fallbackMatched) return rule.fallback.points || 0;
-    }
-    return 0;
+  const scoreAnswerByRule = (answer, rule, questionText) => {
+    return evaluateAnswer(answer, rule, questionText);
   };
 
   const calculateFinalScore = () => {
     let score = 0;
     if (activeScenario && Array.isArray(activeScenario.answerRules)) {
-      activeScenario.answerRules.forEach((rule, idx) => {
-        score += scoreAnswerByRule(questionsAnswers[idx], rule);
-      });
+      for (let idx = 0; idx < activeScenario.answerRules.length; idx++) {
+        const rule = activeScenario.answerRules[idx];
+        const questionText = activeScenario.questions?.[idx] || '';
+        score += scoreAnswerByRule(questionsAnswers[idx], rule, questionText);
+      }
     }
 
     if (activeScenario && typeof activeScenario.armitageTrips === 'number') {
@@ -319,6 +312,13 @@ export default function App() {
     setScreen('final');
   };
 
+  const handleSelectAddress = (code) => {
+    setInputCode(code);
+    setShowAddressBook(false);
+    // Фокус на поле ввода после закрытия панели
+    setTimeout(() => inputCodeRef.current?.focus(), 100);
+  };
+
   if (screen === 'menu') {
     return (
       <div style={styles.container}>
@@ -367,7 +367,8 @@ export default function App() {
             <div key={scen.id} style={styles.scenarioCard} onClick={() => prepareScenario(scen)}>
               <div style={styles.scenarioTitle}>{scen.title}</div>
               <div style={styles.scenarioDesc}>{scen.description}</div>
-              <div style={{ fontSize: '12px', color: '#a8a29e', marginTop: '8px' }}>Лимит времени: {scen.maxTime} ч.</div>
+              <div style={{ fontSize: '12px', color: '#a8a29e', marginTop: '8px' }}>
+              </div>
             </div>
           ))}
           <button style={{ ...styles.actionButton, marginTop: '16px' }} onClick={() => setScreen('menu')}>Назад</button>
@@ -379,35 +380,35 @@ export default function App() {
   if (screen === 'trip_prompt') {
     return (
       <div style={styles.container}>
-        <div style={styles.textBlock}>
-          <h2 style={styles.sectionTitle}>Введите количество поездок</h2>
-          <p style={styles.instructionText}>
-            Введите, сколько поездок вы готовы совершить по делу.
-            Если вы превысите лимит Армитеджа, за каждый лишний адрес будет сниматься по одному очку.
-          </p>
-          {pendingScenario && (
-            <div style={{ marginBottom: 16, color: '#fbbf24', fontSize: 16 }}>
-              Поездки Армитеджа: {pendingScenario.armitageTrips}
-            </div>
-          )}
+        <div style={styles.scenariosList}>
+          <h2 style={styles.sectionTitle}>Начало расследования</h2>
           {pendingScenario && (
             <div style={{ marginBottom: 20 }}>
               <div style={{ color: '#fbbf24', fontSize: '18px', marginBottom: 6 }}>{pendingScenario.title}</div>
               <div style={{ color: '#d6d3d1', marginBottom: 10 }}>{pendingScenario.description}</div>
             </div>
           )}
-          <div style={{ display: 'flex', gap: 12, flexDirection: 'column' }}>
-            <input
-              type="number"
-              min="1"
-              value={tripInput}
-              onChange={(e) => setTripInput(e.target.value)}
-              placeholder="Введите количество поездок из блока 'Сложность дела'"
-              style={styles.input}
-            />
-            <button style={styles.actionButton} onClick={confirmTripBudget}>Начать дело</button>
-            <button style={styles.secondaryButton} onClick={() => setScreen('select_case')}>Назад к выбору дела</button>
+          <div style={{ marginBottom: 20, padding: 16, backgroundColor: '#1c1917', borderRadius: 8, border: '1px solid #78350f' }}>
+            <h3 style={{ color: '#f59e0b', fontSize: '16px', margin: '0 0 8px 0' }}>📋 Сложность дела</h3>
+            <p style={{ color: '#d6d3d1', fontSize: '14px', lineHeight: '1.6', margin: 0, whiteSpace: 'pre-wrap' }}>
+              {pendingScenario?.difficultyText || 'Информация о сложности дела не указана.'}
+            </p>
           </div>
+          <div style={{ marginBottom: 16 }}>
+              <label style={{ color: '#a8a29e', fontSize: '14px', display: 'block', marginBottom: 8 }}>
+                Количество поездок:
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={tripInput}
+                onChange={(e) => setTripInput(e.target.value)}
+                placeholder=""
+                style={styles.input}
+              />
+          </div>
+          <button style={styles.actionButton} onClick={confirmTripBudget}>Начать дело</button>
+          <button style={styles.secondaryButton} onClick={() => setScreen('select_case')}>Назад к выбору дела</button>
         </div>
       </div>
     );
@@ -560,7 +561,7 @@ export default function App() {
           <div style={styles.sidebar}>
             <h2 style={styles.sectionTitle}>Журнал</h2>
             <div style={{ marginBottom: '16px' }}>
-              <span style={{ color: '#a8a29e' }}>Количество поездок:</span>
+              <span style={{ color: '#a8a29e' }}>Поездок совершено:</span>
               <span style={styles.timeText}>{currentTime}{declaredTrips !== null ? ` / ${declaredTrips}` : ''}</span>
             </div>
             <div style={{ marginBottom: '20px' }}>
@@ -613,6 +614,22 @@ export default function App() {
                 ))}
               </div>
             </div>
+            <button 
+              style={{ ...styles.secondaryButton, backgroundColor: '#292524', marginTop: '12px' }} 
+              onClick={() => setShowAddressBook(true)}
+            >
+              📖 Адресная книга
+            </button>
+            <button 
+              style={{ ...styles.secondaryButton, backgroundColor: '#7f1d1d', color: '#fecaca', marginTop: '8px', border: '1px solid #991b1b' }} 
+              onClick={() => {
+                if (window.confirm("Завершить дело и перейти к вопросам?")) {
+                  setScreen('questions');
+                }
+              }}
+            >
+              📝 Завершить дело
+            </button>
             {/* Кнопка безопасного выхода с сохранением прогресса */}
             <button 
               style={{ ...styles.secondaryButton, backgroundColor: '#44403c', color: '#fef3c7', marginBottom: '8px', border: '1px solid #78350f' }} 
@@ -664,9 +681,17 @@ export default function App() {
               <div style={styles.storyText}>{renderStoryText(storyText)}</div>
               <div style={{ marginTop: '12px' }}>
                 <form onSubmit={handleVisitLocation} style={styles.form}>
-                  <input type="text" value={inputCode} onChange={(e) => setInputCode(e.target.value)} placeholder="Код..." style={styles.input} disabled={activeScenario && currentTime >= (declaredTrips ?? activeScenario.maxTime)} />
-                  <button type="submit" style={styles.actionButton} disabled={activeScenario && currentTime >= (declaredTrips ?? activeScenario.maxTime)}>Идти туда</button>
-                  {activeScenario && currentTime >= (declaredTrips ?? activeScenario.maxTime) && (
+                  <input
+                    type="text"
+                    value={inputCode}
+                    onChange={(e) => setInputCode(e.target.value)}
+                    placeholder="Код..."
+                    style={styles.input}
+                    disabled={activeScenario && declaredTrips !== null && currentTime >= declaredTrips}
+                    ref={inputCodeRef}
+                  />
+                  <button type="submit" style={styles.actionButton} disabled={activeScenario && declaredTrips !== null && currentTime >= declaredTrips}>Идти туда</button>
+                  {activeScenario && declaredTrips !== null && currentTime >= declaredTrips && (
                     <button
                       type="button"
                       style={{ ...styles.secondaryButton, marginLeft: 8 }}
@@ -679,6 +704,11 @@ export default function App() {
           </div>
         </div>
       </div>
+      <AddressBookPanel
+        isOpen={showAddressBook}
+        onClose={() => setShowAddressBook(false)}
+        onSelectAddress={handleSelectAddress}
+      />
     </div>
   );
 }
