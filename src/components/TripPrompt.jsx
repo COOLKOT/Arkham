@@ -22,13 +22,26 @@ export default function TripPrompt({ scenario, onConfirm, onBack }) {
 
         {scenario && (
           <div style={{ marginBottom: '20px' }}>
-            <div style={{ color: '#fbbf24', fontSize: '20px', fontWeight: 'bold', marginBottom: '6px' }}>{scenario.title}</div>
+            <div style={{ color: '#fbbf24', fontSize: '22px', fontWeight: 'bold', marginBottom: '6px', fontFamily: 'var(--font-title)' }}>{scenario.title}</div>
             <div style={{ color: '#d6d3d1', fontSize: '16px' }}>{scenario.description}</div>
           </div>
         )}
 
+        {scenario?.preface && (
+          <div style={{ marginBottom: '20px', padding: '20px', backgroundColor: 'rgba(120, 53, 15, 0.2)', borderRadius: '8px', border: '1px solid #b45309' }}>
+            <h3 style={{ color: '#fbbf24', fontSize: '18px', margin: '0 0 10px 0', fontFamily: 'var(--font-title)' }}>
+              📜 Предисловие
+            </h3>
+            <p style={{ color: '#e7e5e4', fontSize: '16px', lineHeight: '1.65', margin: 0, fontStyle: 'italic', whiteSpace: 'pre-wrap' }}>
+              {scenario.preface}
+            </p>
+          </div>
+        )}
+
         <div style={{ marginBottom: '24px', padding: '20px', backgroundColor: '#141210', borderRadius: '8px', border: '1px solid #78350f' }}>
-          <h3 style={{ color: '#f59e0b', fontSize: '18px', margin: '0 0 10px 0' }}>📋 Сложность дела</h3>
+          <h3 style={{ color: '#f59e0b', fontSize: '18px', margin: '0 0 10px 0', fontFamily: 'var(--font-title)' }}>
+            📋 Сложность дела
+          </h3>
           <p style={{ color: '#d6d3d1', fontSize: '15px', lineHeight: '1.6', margin: 0, whiteSpace: 'pre-wrap' }}>
             {scenario?.difficultyText || 'Информация о сложности дела не указана.'}
           </p>
