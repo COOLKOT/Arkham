@@ -80,7 +80,7 @@ function wordSimilarity(w1, w2) {
 }
 
 // Главная функция оценки
-export function evaluateAnswer(answer, rule, question) {
+export function evaluateAnswer(answer, rule, _question) {
   if (!answer || !rule || !rule.correctAnswer) return 0;
 
   const answerText = String(answer).toLowerCase();

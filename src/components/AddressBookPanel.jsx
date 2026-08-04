@@ -159,12 +159,16 @@ const styles = {
     color: '#d6d3d1',
     cursor: 'pointer',
     transition: 'background-color 0.2s',
+    verticalAlign: 'middle',
+    lineHeight: 1.4,
   },
   tableCode: {
     color: '#f59e0b',
     fontWeight: 'bold',
     fontFamily: '"Courier New", monospace',
     fontSize: '13px',
+    verticalAlign: 'middle',
+    lineHeight: 1.4,
   },
   noResults: {
     textAlign: 'center',

@@ -1,4 +1,202 @@
+:root {
+  --bg-dark: #12100e;
+  --bg-card: #1c1815;
+  --bg-panel: #26211d;
+  --border-gold: #855823;
+  --border-gold-bright: #d97706;
+  --accent-amber: #f59e0b;
+  --accent-gold: #fbbf24;
+  --text-parchment: #fef3c7;
+  --text-muted: #a8a29e;
+  --text-body: #e7e5e4;
+  --bg-paper: rgba(34, 24, 12, 0.92);
+  --font-title: 'Cinzel', Georgia, serif;
+  --font-body: 'Crimson Pro', Georgia, serif;
+  --font-typewriter: 'Special Elite', 'Courier New', monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
 body {
   margin: 0;
-  background-color: #1c1917;
+  background-color: var(--bg-dark);
+  color: var(--text-parchment);
+  font-family: var(--font-body);
+  font-size: 18px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Background Video Styles */
+.bg-video-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  z-index: -2;
+  pointer-events: none;
+}
+
+.bg-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bg-video-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #191512;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-gold);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-amber);
+}
+
+/* Typography Utility Classes */
+h1, h2, h3, h4 {
+  font-family: var(--font-title);
+  letter-spacing: 0.05em;
+}
+
+/* Glass & Card Containers */
+.arkham-card {
+  background: var(--bg-panel);
+  border: 2px solid var(--border-gold);
+  border-radius: 12px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.75), inset 0 0 15px rgba(133, 88, 35, 0.15);
+  backdrop-filter: blur(8px);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.arkham-card-interactive:hover {
+  border-color: var(--accent-gold);
+  transform: translateY(-2px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.85), inset 0 0 20px rgba(251, 191, 36, 0.15);
+}
+
+/* Buttons */
+.btn-primary {
+  background: linear-gradient(135deg, #b45309 0%, #78350f 100%);
+  color: #fef3c7;
+  font-family: var(--font-title);
+  font-weight: 700;
+  padding: 12px 24px;
+  border-radius: 6px;
+  border: 1px solid var(--accent-amber);
+  cursor: pointer;
+  font-size: 16px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #d97706 0%, #92400e 100%);
+  border-color: var(--accent-gold);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.3);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(0.6);
+}
+
+.btn-secondary {
+  background: rgba(41, 37, 36, 0.8);
+  color: var(--text-muted);
+  border: 1px solid #57534e;
+  padding: 10px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-family: var(--font-body);
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  color: var(--text-parchment);
+  border-color: var(--accent-amber);
+  background: #3f3732;
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #7f1d1d 0%, #450a0a 100%);
+  color: #fecaca;
+  border: 1px solid #991b1b;
+  padding: 10px 18px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-danger:hover {
+  background: linear-gradient(135deg, #991b1b 0%, #581c1c 100%);
+  border-color: #f87171;
+  color: #fff;
+}
+
+/* Input Fields */
+.arkham-input {
+  background-color: var(--bg-dark);
+  border: 1px solid var(--border-gold);
+  border-radius: 6px;
+  padding: 12px 16px;
+  color: var(--text-parchment);
+  font-size: 16px;
+  font-family: var(--font-body);
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.arkham-input:focus {
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
+}
+
+/* Audio Player Range Slider */
+input[type=range] {
+  accent-color: var(--accent-amber);
+  cursor: pointer;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
