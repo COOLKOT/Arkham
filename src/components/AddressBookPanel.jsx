@@ -78,7 +78,7 @@ const styles = {
   },
   tabActive: {
     color: '#f59e0b',
-    borderLeftColor: '#f59e0b',
+    borderLeft: '3px solid #f59e0b',
     backgroundColor: '#1c1917',
   },
   tabCount: {

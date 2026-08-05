@@ -200,3 +200,405 @@ input[type=range] {
 .animate-fade-in {
   animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* ==========================================
+   MOBILE & RESPONSIVE DESIGN ADAPTATIONS
+   ========================================== */
+
+/* Tablets and Mobile Screens (<= 768px) */
+@media (max-width: 768px) {
+  body {
+    font-size: 16px;
+  }
+
+  /* Padding & Containers */
+  .arkham-card {
+    padding: 20px !important;
+    border-radius: 10px;
+  }
+
+  /* Typography */
+  h1 {
+    font-size: 26px !important;
+    letter-spacing: 0.06em !important;
+  }
+  h2 {
+    font-size: 20px !important;
+  }
+  h3 {
+    font-size: 17px !important;
+  }
+
+  /* Buttons & Inputs Touch Targets */
+  .btn-primary, .btn-secondary, .btn-danger {
+    padding: 12px 18px !important;
+    font-size: 15px !important;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .arkham-input {
+    padding: 12px 14px !important;
+    font-size: 16px !important; /* Prevents auto-zoom on iOS safari */
+    min-height: 44px;
+  }
+
+  /* Form controls stack vertically on small screens */
+  form[style*="marginTop"] {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  form[style*="marginTop"] button {
+    width: 100% !important;
+  }
+
+  /* Audio player controls stack neatly */
+  div[style*="alignItems: center"][style*="justifyContent: space-between"] {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
+/* Phones & Small Mobile (<= 520px) */
+@media (max-width: 520px) {
+  /* Reduce outer page padding on phones */
+  div[style*="padding: 24px"],
+  div[style*="padding: '24px'"] {
+    padding: 12px !important;
+  }
+
+  .arkham-card {
+    padding: 16px !important;
+  }
+
+  h1 {
+    font-size: 22px !important;
+  }
+
+  /* Game main content tabs scrollable on phone */
+  div[style*="flexWrap: wrap"][style*="gap: 8px"] {
+    gap: 6px !important;
+  }
+
+  /* Address Book Mobile Drawer Adaptation */
+  .ab-panel {
+    max-width: 100% !important;
+    width: 100vw !important;
+    height: 100vh !important;
+  }
+
+  .ab-panel > div[style*="display: flex"] {
+    flex-direction: column !important;
+  }
+
+  .ab-panel .ab-tabs {
+    width: 100% !important;
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    max-height: 52px !important;
+    border-right: none !important;
+    border-bottom: 2px solid #78350f !important;
+    padding: 4px 6px !important;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ab-panel .ab-tabs button {
+    display: inline-flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 4px !important;
+    padding: 6px 10px !important;
+    border-left: none !important;
+    border-bottom: 3px solid transparent !important;
+    border-radius: 4px;
+    font-size: 12px !important;
+    min-height: 36px !important;
+  }
+
+  .ab-panel .ab-table th, .ab-panel .ab-table td {
+    padding: 8px 8px !important;
+    font-size: 13px !important;
+  }
+}
+
+/* ==========================================
+   VINTAGE BOOK & INSTRUCTION PAGE STYLES
+   ========================================== */
+
+.book-wrapper {
+  perspective: 1200px;
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
+}
+
+.book-container {
+  background: radial-gradient(circle, #2d1e16 0%, #170f0b 100%);
+  border: 4px solid #78350f;
+  border-radius: 14px;
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.95),
+    inset 0 0 25px rgba(0, 0, 0, 0.8),
+    0 0 0 2px #d97706;
+  padding: 16px;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.book-ribbon {
+  position: absolute;
+  top: -6px;
+  right: 48px;
+  width: 22px;
+  height: 90px;
+  background: linear-gradient(135deg, #991b1b 0%, #7f1d1d 100%);
+  box-shadow: 2px 4px 10px rgba(0, 0, 0, 0.6);
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 4px;
+  z-index: 12;
+  pointer-events: none;
+}
+
+.book-ribbon::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 0;
+  width: 0;
+  height: 0;
+  border-left: 11px solid transparent;
+  border-right: 11px solid transparent;
+  border-top: 10px solid #7f1d1d;
+}
+
+/* Page Paper */
+.book-page {
+  background: radial-gradient(ellipse at center, #fbf7ee 0%, #ebdcb9 100%);
+  color: #2a1f18;
+  border: 1px solid #d6c49d;
+  border-radius: 8px;
+  padding: 36px 44px;
+  min-height: 520px;
+  position: relative;
+  box-shadow: 
+    inset 0 0 30px rgba(120, 53, 15, 0.15),
+    0 8px 24px rgba(0, 0, 0, 0.5);
+  font-family: var(--font-body);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transform-origin: left center;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+}
+
+.book-page.flip-next {
+  animation: pageFlipNext 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.book-page.flip-prev {
+  animation: pageFlipPrev 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes pageFlipNext {
+  0% { transform: rotateY(0deg) scale(1); opacity: 1; }
+  50% { transform: rotateY(-15deg) scale(0.98); opacity: 0.7; }
+  100% { transform: rotateY(0deg) scale(1); opacity: 1; }
+}
+
+@keyframes pageFlipPrev {
+  0% { transform: rotateY(0deg) scale(1); opacity: 1; }
+  50% { transform: rotateY(15deg) scale(0.98); opacity: 0.7; }
+  100% { transform: rotateY(0deg) scale(1); opacity: 1; }
+}
+
+/* Book Cover Page */
+.book-cover-inner {
+  background: radial-gradient(circle, #3b1c10 0%, #200d07 100%);
+  border: 3px double #d97706;
+  border-radius: 8px;
+  padding: 40px 30px;
+  min-height: 520px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #fef3c7;
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8);
+}
+
+.book-cover-title {
+  font-family: var(--font-title);
+  font-size: 32px;
+  color: #fbbf24;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: 2px 2px 6px rgba(0, 0, 0, 0.9);
+  margin-bottom: 8px;
+}
+
+.book-cover-subtitle {
+  font-size: 18px;
+  color: #d97706;
+  font-style: italic;
+  margin-bottom: 24px;
+  letter-spacing: 0.04em;
+}
+
+.book-cover-emblem {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  border: 2px solid #d97706;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 54px;
+  margin: 20px 0;
+  box-shadow: inset 0 0 15px rgba(217, 119, 6, 0.3), 0 6px 16px rgba(0, 0, 0, 0.6);
+}
+
+.book-cover-meta {
+  font-size: 14px;
+  color: #a8a29e;
+  margin-top: 24px;
+  border-top: 1px solid #78350f;
+  padding-top: 12px;
+  width: 80%;
+  line-height: 1.5;
+}
+
+/* Chapter & Content Typography */
+.book-chapter-badge {
+  font-family: var(--font-title);
+  font-size: 13px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #78350f;
+  border-bottom: 2px solid #b45309;
+  display: inline-block;
+  padding-bottom: 4px;
+  margin-bottom: 8px;
+}
+
+.book-page-header-title {
+  font-family: var(--font-title);
+  font-size: 26px;
+  color: #451a03;
+  margin-bottom: 4px;
+}
+
+.book-page-header-subtitle {
+  font-size: 16px;
+  color: #78350f;
+  font-style: italic;
+  margin-bottom: 20px;
+}
+
+.book-paragraph {
+  font-size: 17px;
+  line-height: 1.7;
+  color: #2c1f17;
+  margin-bottom: 14px;
+}
+
+.book-tip-box {
+  background: rgba(245, 230, 200, 0.85);
+  border-left: 4px solid #b45309;
+  border-radius: 4px;
+  padding: 12px 16px;
+  margin-top: 16px;
+  font-size: 15px;
+  color: #451a03;
+  font-style: italic;
+  box-shadow: inset 0 0 10px rgba(120, 53, 15, 0.08);
+}
+
+.book-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #d6c49d;
+  padding-top: 12px;
+  margin-top: 20px;
+  font-size: 14px;
+  color: #78350f;
+}
+
+/* Chapter Tabs Navigation Bar */
+.book-tabs-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  justify-content: center;
+}
+
+.book-tab-btn {
+  background: rgba(30, 20, 15, 0.85);
+  color: #d6d3d1;
+  border: 1px solid #78350f;
+  border-radius: 6px 6px 0 0;
+  padding: 6px 14px;
+  font-family: var(--font-title);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.book-tab-btn:hover {
+  background: #451a03;
+  color: #fbbf24;
+  border-color: #d97706;
+}
+
+.book-tab-btn.active {
+  background: radial-gradient(ellipse at center, #fbf7ee 0%, #ebdcb9 100%);
+  color: #451a03;
+  border-color: #d97706;
+  border-bottom: 2px solid transparent;
+  font-weight: bold;
+  box-shadow: 0 -3px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Bottom Controls */
+.book-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16px;
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .book-page, .book-cover-inner {
+    padding: 24px 20px;
+    min-height: 440px;
+  }
+  .book-cover-title {
+    font-size: 24px;
+  }
+  .book-page-header-title {
+    font-size: 20px;
+  }
+  .book-paragraph {
+    font-size: 15px;
+  }
+  .book-ribbon {
+    right: 20px;
+    width: 18px;
+    height: 70px;
+  }
+  .book-controls {
+    flex-wrap: wrap;
+  }
+}
+
+

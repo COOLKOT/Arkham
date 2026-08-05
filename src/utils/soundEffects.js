@@ -1,10 +1,6 @@
-// Web Audio API Procedural Sound Engine for Arkham Detective App
+// Web Audio API Sound Effects Engine for Arkham Detective App
 
 let audioCtx = null;
-let ambientGainNode = null;
-let ambientSource = null;
-let isAmbientPlaying = false;
-let currentAmbientType = 'none';
 
 function getAudioContext() {
   if (!audioCtx) {
@@ -19,7 +15,7 @@ function getAudioContext() {
   return audioCtx;
 }
 
-// 1. UI Sound Effects
+// UI Sound Effects
 export function playClickSound() {
   try {
     const ctx = getAudioContext();
@@ -67,79 +63,4 @@ export function playPageTurnSound() {
 
     noise.start();
   } catch {}
-}
-
-// 2. Procedural Atmospheric Ambient Sound Generator (Rain & Wind / Fire)
-export function startAmbientSound(type = 'rain', volume = 0.3) {
-  try {
-    const ctx = getAudioContext();
-    if (!ctx) return;
-
-    stopAmbientSound();
-
-    if (type === 'none') return;
-
-    const bufferSize = ctx.sampleRate * 2;
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-
-    // Pink/Brown noise generator for rain/wind
-    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
-    for (let i = 0; i < bufferSize; i++) {
-      const white = Math.random() * 2 - 1;
-      b0 = 0.99886 * b0 + white * 0.0555179;
-      b1 = 0.99332 * b1 + white * 0.0750759;
-      b2 = 0.96900 * b2 + white * 0.1538520;
-      b3 = 0.86650 * b3 + white * 0.3104856;
-      b4 = 0.55000 * b4 + white * 0.5329522;
-      b5 = -0.7616 * b5 - white * 0.0168980;
-      data[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
-      data[i] *= 0.11;
-      b6 = white * 0.115926;
-    }
-
-    const noise = ctx.createBufferSource();
-    noise.buffer = buffer;
-    noise.loop = true;
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = type === 'rain' ? 650 : 350;
-
-    ambientGainNode = ctx.createGain();
-    ambientGainNode.gain.setValueAtTime(volume, ctx.currentTime);
-
-    noise.connect(filter);
-    filter.connect(ambientGainNode);
-    ambientGainNode.connect(ctx.destination);
-
-    noise.start();
-    ambientSource = noise;
-    isAmbientPlaying = true;
-    currentAmbientType = type;
-  } catch {}
-}
-
-export function setAmbientVolume(val) {
-  if (ambientGainNode && audioCtx) {
-    try {
-      ambientGainNode.gain.setValueAtTime(Math.max(0, Math.min(1, val)), audioCtx.currentTime);
-    } catch {}
-  }
-}
-
-export function stopAmbientSound() {
-  if (ambientSource) {
-    try {
-      ambientSource.stop();
-      ambientSource.disconnect();
-    } catch {}
-    ambientSource = null;
-  }
-  isAmbientPlaying = false;
-  currentAmbientType = 'none';
-}
-
-export function getAmbientStatus() {
-  return { isPlaying: isAmbientPlaying, type: currentAmbientType };
 }

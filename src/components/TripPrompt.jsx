@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
+import AudioPlayerControls from './AudioPlayerControls';
+import { useAudioPlayer } from '../hooks/useAudioPlayer';
 
 export default function TripPrompt({ scenario, onConfirm, onBack }) {
   const [tripInput, setTripInput] = useState('');
+
+  const introAudioSrc = scenario ? `/music/${scenario.id}.mp3` : '';
+  const introAudioPlayer = useAudioPlayer(introAudioSrc);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -27,16 +32,19 @@ export default function TripPrompt({ scenario, onConfirm, onBack }) {
           </div>
         )}
 
-        {scenario?.preface && (
-          <div style={{ marginBottom: '20px', padding: '20px', backgroundColor: 'rgba(120, 53, 15, 0.2)', borderRadius: '8px', border: '1px solid #b45309' }}>
-            <h3 style={{ color: '#fbbf24', fontSize: '18px', margin: '0 0 10px 0', fontFamily: 'var(--font-title)' }}>
-              📜 Предисловие
-            </h3>
-            <p style={{ color: '#e7e5e4', fontSize: '16px', lineHeight: '1.65', margin: 0, fontStyle: 'italic', whiteSpace: 'pre-wrap' }}>
-              {scenario.preface}
-            </p>
-          </div>
-        )}
+        <AudioPlayerControls
+          title="Вступление к делу"
+          audioPlayer={introAudioPlayer}
+          audioElement={
+            <audio
+              ref={introAudioPlayer.audioRef}
+              src={introAudioSrc}
+              preload="auto"
+              {...introAudioPlayer.audioProps}
+              style={{ display: 'none' }}
+            />
+          }
+        />
 
         <div style={{ marginBottom: '24px', padding: '20px', backgroundColor: '#141210', borderRadius: '8px', border: '1px solid #78350f' }}>
           <h3 style={{ color: '#f59e0b', fontSize: '18px', margin: '0 0 10px 0', fontFamily: 'var(--font-title)' }}>

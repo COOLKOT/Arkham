@@ -2,7 +2,6 @@ import React, { useState, useRef } from 'react';
 import AddressBookPanel from './components/AddressBookPanel';
 import AlliesList from './components/AlliesList';
 import NotesPanel from './components/NotesPanel';
-import AudioPlayerControls from './components/AudioPlayerControls';
 import LocationInputAutocomplete from './components/LocationInputAutocomplete';
 import MainMenu from './components/MainMenu';
 import InstructionScreen from './components/InstructionScreen';
@@ -12,8 +11,8 @@ import QuestionsScreen from './components/QuestionsScreen';
 import FinalScreen from './components/FinalScreen';
 import { ARMITAGE_HELP_ITEMS } from './helpData';
 import { useGameState } from './hooks/useGameState';
-import { useAudioPlayer } from './hooks/useAudioPlayer';
 import { playClickSound, playPageTurnSound } from './utils/soundEffects';
+import { ALL_SCENARIOS } from './scenarios';
 import BackgroundVideo from './components/BackgroundVideo';
 import './index.css';
 
@@ -22,8 +21,8 @@ const styles = {
   header: { borderBottom: '2px solid #78350f', paddingBottom: '16px', marginBottom: '24px', textAlign: 'center' },
   title: { fontSize: '32px', fontWeight: 'bold', color: '#f59e0b', textTransform: 'uppercase', margin: 0, fontFamily: 'var(--font-title)' },
   grid: { display: 'flex', flexWrap: 'wrap', gap: '24px' },
-  sidebar: { flex: '1', minWidth: '300px', padding: '24px' },
-  mainContent: { flex: '2', minWidth: '340px', padding: '28px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' },
+  sidebar: { flex: '1', minWidth: '280px', padding: '24px' },
+  mainContent: { flex: '2', minWidth: '280px', padding: '28px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' },
   sectionTitle: { fontSize: '22px', marginBottom: '16px', color: '#fbbf24', borderBottom: '1px solid #78350f', paddingBottom: '8px', marginTop: 0 },
   timeText: { fontSize: '24px', fontWeight: 'bold', color: '#f59e0b', marginLeft: '8px', fontFamily: 'monospace' },
   tagButton: { backgroundColor: '#332c26', color: '#fde68a', padding: '6px 12px', borderRadius: '4px', fontSize: '14px', border: '1px solid #fbbf24', display: 'inline-block', cursor: 'pointer', transition: 'all 0.2s' },
@@ -58,6 +57,8 @@ export default function App() {
     finalScore,
     finalInsanity,
     finalEndingText,
+    hasArmitageHandicap,
+    hasFreeFirstVisitBonus,
     prepareScenario,
     startScenario,
     visitLocation,
@@ -71,9 +72,6 @@ export default function App() {
   const [selectedAllyName, setSelectedAllyName] = useState('');
   const [showAddressBook, setShowAddressBook] = useState(false);
   const inputCodeRef = useRef(null);
-
-  const introAudioSrc = activeScenario ? `/music/${activeScenario.id}.mp3` : '';
-  const introAudioPlayer = useAudioPlayer(introAudioSrc);
 
   const executeGoToLocation = (codeToVisit) => {
     const code = String(codeToVisit || '').trim();
@@ -193,10 +191,11 @@ export default function App() {
     }
 
     if (screen === 'trip_prompt') {
+      const currentScenario = ALL_SCENARIOS.find((s) => s.id === pendingScenario?.id) || pendingScenario;
       return (
         <TripPrompt
-          scenario={pendingScenario}
-          onConfirm={(budget) => { playClickSound(); startScenario(pendingScenario, budget); }}
+          scenario={currentScenario}
+          onConfirm={(budget) => { playClickSound(); startScenario(currentScenario, budget); }}
           onBack={() => { playClickSound(); setScreen('select_case'); }}
         />
       );
@@ -218,9 +217,11 @@ export default function App() {
       return (
         <FinalScreen
           activeScenario={activeScenario}
+          currentTime={currentTime}
           finalScore={finalScore}
           finalInsanity={finalInsanity}
           finalEndingText={finalEndingText}
+          hasArmitageHandicap={hasArmitageHandicap}
           onBackToMenu={() => { playClickSound(); exitToMenu(); }}
           onSelectNewCase={() => { playClickSound(); setScreen('select_case'); }}
         />
@@ -242,25 +243,42 @@ export default function App() {
             <div className="arkham-card" style={styles.sidebar}>
               <h2 style={styles.sectionTitle}>Журнал</h2>
 
-              <div style={{ marginBottom: '18px' }}>
-                <span style={{ color: '#a8a29e' }}>Поездок совершено:</span>
-                <span style={styles.timeText}>{currentTime}{declaredTrips !== null ? ` / ${declaredTrips}` : ''}</span>
-              </div>
-
-              {/* AUDIO PLAYER */}
-              <AudioPlayerControls
-                title="Вступление к делу"
-                audioPlayer={introAudioPlayer}
-                audioElement={
-                  <audio
-                    ref={introAudioPlayer.audioRef}
-                    src={introAudioSrc}
-                    preload="auto"
-                    {...introAudioPlayer.audioProps}
-                    style={{ display: 'none' }}
-                  />
+              {(() => {
+                let periodText = '—';
+                if (currentTime > 0) {
+                  const currentDay = Math.floor((currentTime - 1) / 3) + 1;
+                  const periods = ['Рассвет 🌅', 'Полдень ☀️', 'Закат 🌇'];
+                  const currentPeriod = periods[(currentTime - 1) % 3];
+                  periodText = `День ${currentDay} — ${currentPeriod}`;
                 }
-              />
+                return (
+                  <div style={{ marginBottom: '18px', padding: '14px', backgroundColor: '#141210', border: '1px solid #78350f', borderRadius: '6px' }}>
+                    <div style={{ marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: '#a8a29e', fontSize: '14px' }}>Поездок совершено:</span>
+                      <span style={styles.timeText}>{currentTime}{declaredTrips !== null ? ` / ${declaredTrips}` : ''}</span>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed #442810', paddingTop: '8px' }}>
+                      <span style={{ color: '#a8a29e', fontSize: '14px' }}>Период дня:</span>
+                      <span style={{ color: '#fbbf24', fontWeight: 'bold', fontSize: '15px' }}>
+                        {periodText}
+                      </span>
+                    </div>
+
+                    {hasArmitageHandicap && activeScenario?.id !== 1 && (
+                      <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed #442810', color: '#22c55e', fontSize: '13px', textAlign: 'center', fontWeight: 'bold' }}>
+                        🎁 Фора за Дело №1: Разрешено на 1 адрес больше без штрафа!
+                      </div>
+                    )}
+
+                    {hasFreeFirstVisitBonus && visitedLocations.length < 2 && (
+                      <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed #442810', color: '#22c55e', fontSize: '13px', textAlign: 'center', fontWeight: 'bold' }}>
+                        🌅 Фора за Дело №2: Вторая поездка тоже проходит на Рассвете!
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               <div style={{ marginBottom: '20px' }}>
                 <h3 style={{ color: '#a8a29e', fontSize: '16px', marginBottom: '8px' }}>Посещённые места:</h3>
@@ -285,7 +303,7 @@ export default function App() {
                 )}
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
                 <button
                   className="btn-secondary"
                   style={{ width: '100%' }}

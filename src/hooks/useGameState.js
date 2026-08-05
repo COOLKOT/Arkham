@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { evaluateAnswer } from '../answerValidator';
+import { ALL_SCENARIOS } from '../scenarios';
 
 const SAVE_KEY = 'arkham_save';
 
@@ -18,6 +19,20 @@ export function useGameState() {
   const [finalInsanity, setFinalInsanity] = useState('');
   const [finalEndingText, setFinalEndingText] = useState('');
   const [hasSavedGame, setHasSavedGame] = useState(false);
+  const [hasArmitageHandicap, setHasArmitageHandicap] = useState(() => {
+    try {
+      return localStorage.getItem('arkham_armitage_handicap') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [hasFreeFirstVisitBonus, setHasFreeFirstVisitBonus] = useState(() => {
+    try {
+      return localStorage.getItem('arkham_free_first_visit') === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   // Check if save exists on mount
   useEffect(() => {
@@ -54,13 +69,14 @@ export function useGameState() {
       if (!savedRaw) return;
       const data = JSON.parse(savedRaw);
       if (data.activeScenario) {
-        setActiveScenario(data.activeScenario);
+        const freshScenario = ALL_SCENARIOS.find((s) => s.id === data.activeScenario.id) || data.activeScenario;
+        setActiveScenario(freshScenario);
         setCurrentTime(data.currentTime || 0);
         setDeclaredTrips(data.declaredTrips ?? null);
         setVisitedLocations(data.visitedLocations || []);
-        setStoryText(data.storyText || data.activeScenario.paragraphs?.['start'] || '');
+        setStoryText(data.storyText || freshScenario.paragraphs?.['start'] || '');
         setNotes(data.notes || '');
-        setQuestionsList(data.activeScenario.questions || []);
+        setQuestionsList(freshScenario.questions || []);
         setQuestionsAnswers(data.questionsAnswers || {});
         setScreen('game');
       }
@@ -99,9 +115,18 @@ export function useGameState() {
     const hasVisitedLibrary = visitedLocations.some((loc) => String(loc.code).toUpperCase() === 'У23');
     const isFreeArmitageVisit = codeUpper === 'У23А' && hasVisitedLibrary;
 
-    if (!isFreeArmitageVisit) {
+    // Check if free first visit bonus from scenario 2 (<13 points) applies
+    const isFreeFirstVisit = hasFreeFirstVisitBonus && visitedLocations.length === 0;
+
+    if (!isFreeArmitageVisit && !isFreeFirstVisit) {
       setCurrentTime(prev => prev + 1);
+    } else if (isFreeFirstVisit) {
+      try {
+        localStorage.removeItem('arkham_free_first_visit');
+      } catch {}
+      setHasFreeFirstVisitBonus(false);
     }
+
     setVisitedLocations(prev => [...prev, { code, text }]);
     setStoryText(text);
   };
@@ -117,7 +142,12 @@ export function useGameState() {
     }
 
     if (activeScenario && typeof activeScenario.armitageTrips === 'number') {
-      const extraTrips = Math.max(0, currentTime - activeScenario.armitageTrips);
+      let allowedTrips = activeScenario.armitageTrips;
+      // If player earned the handicap from Scenario 1 (<12 points) and is now playing a subsequent scenario
+      if (activeScenario.id !== 1 && hasArmitageHandicap) {
+        allowedTrips += 1;
+      }
+      const extraTrips = Math.max(0, currentTime - allowedTrips);
       score -= extraTrips;
     }
 
@@ -155,6 +185,32 @@ export function useGameState() {
     setFinalScore(score);
     setFinalInsanity(getInsanityText());
     setFinalEndingText(getFinalEndingText(score));
+
+    // Armitage handicap logic for next scenario (Case 1 <12 points):
+    if (activeScenario && activeScenario.id === 1) {
+      if (score < 12) {
+        localStorage.setItem('arkham_armitage_handicap', 'true');
+        setHasArmitageHandicap(true);
+      } else {
+        localStorage.removeItem('arkham_armitage_handicap');
+        setHasArmitageHandicap(false);
+      }
+    } else if (activeScenario && activeScenario.id !== 1 && hasArmitageHandicap) {
+      localStorage.removeItem('arkham_armitage_handicap');
+      setHasArmitageHandicap(false);
+    }
+
+    // Armitage handicap logic for next scenario (Case 2 <13 points): 1 free initial visit
+    if (activeScenario && activeScenario.id === 2) {
+      if (score < 13) {
+        localStorage.setItem('arkham_free_first_visit', 'true');
+        setHasFreeFirstVisitBonus(true);
+      } else {
+        localStorage.removeItem('arkham_free_first_visit');
+        setHasFreeFirstVisitBonus(false);
+      }
+    }
+
     clearSave();
     setScreen('final');
   };
@@ -193,6 +249,8 @@ export function useGameState() {
     finalScore,
     finalInsanity,
     finalEndingText,
+    hasArmitageHandicap,
+    hasFreeFirstVisitBonus,
     prepareScenario,
     startScenario,
     visitLocation,
