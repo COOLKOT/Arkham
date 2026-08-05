@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ADDRESS_BOOK_SECTIONS } from '../addressBookSections';
 
 const styles = {
@@ -178,7 +178,7 @@ const styles = {
   },
 };
 
-export default function AddressBookPanel({ isOpen, onClose, onSelectAddress }) {
+const AddressBookPanel = React.memo(function AddressBookPanel({ isOpen, onClose, onSelectAddress }) {
   const [search, setSearch] = useState('');
   const [selectedSection, setSelectedSection] = useState(null);
 
@@ -186,15 +186,17 @@ export default function AddressBookPanel({ isOpen, onClose, onSelectAddress }) {
 
   const hasSearch = search.trim().length > 0;
 
-  const filteredEntries = hasSearch
-    ? ADDRESS_BOOK_SECTIONS.flatMap(section =>
-        section.entries.filter(
-          entry =>
-            entry.name.toLowerCase().includes(search.toLowerCase()) ||
-            entry.code.toLowerCase().includes(search.toLowerCase())
-        )
+  const filteredEntries = useMemo(() => {
+    if (!hasSearch) return null;
+    const query = search.toLowerCase();
+    return ADDRESS_BOOK_SECTIONS.flatMap(section =>
+      section.entries.filter(
+        entry =>
+          entry.name.toLowerCase().includes(query) ||
+          entry.code.toLowerCase().includes(query)
       )
-    : null;
+    );
+  }, [search, hasSearch]);
 
   const currentSection = selectedSection
     ? ADDRESS_BOOK_SECTIONS.find(s => s.name === selectedSection)
@@ -351,4 +353,6 @@ export default function AddressBookPanel({ isOpen, onClose, onSelectAddress }) {
       </div>
     </div>
   );
-}
+});
+
+export default AddressBookPanel;

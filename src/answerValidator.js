@@ -131,6 +131,8 @@ export function evaluateAnswer(answer, rule, _question) {
     if (bestMatch > 0.5) matchCount++;
   }
 
+  const similarity = totalScore / correctLemmas.length;
+
   // Если совпало более 60% — засчитываем максимум баллов, иначе 0
   if (similarity > 0.6) return rule.points;
 

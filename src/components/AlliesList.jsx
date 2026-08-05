@@ -62,7 +62,7 @@ const styles = {
   },
 };
 
-export default function AlliesList({ allies = DEFAULT_ALLIES, selectedAllyName, onSelectAlly, onGoToAddress }) {
+const AlliesList = React.memo(function AlliesList({ allies = DEFAULT_ALLIES, selectedAllyName, onSelectAlly, onGoToAddress }) {
   const [search, setSearch] = useState('');
   const resolvedAllies = Array.isArray(allies) && allies.length > 0 ? allies : DEFAULT_ALLIES;
 
@@ -144,4 +144,6 @@ export default function AlliesList({ allies = DEFAULT_ALLIES, selectedAllyName, 
       )}
     </div>
   );
-}
+});
+
+export default AlliesList;

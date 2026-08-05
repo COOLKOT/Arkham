@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { evaluateAnswer } from '../answerValidator';
 import { ALL_SCENARIOS } from '../scenarios';
 
@@ -85,19 +85,19 @@ export function useGameState() {
     }
   };
 
-  const clearSave = () => {
+  const clearSave = useCallback(() => {
     try {
       localStorage.removeItem(SAVE_KEY);
       setHasSavedGame(false);
     } catch {}
-  };
+  }, []);
 
-  const prepareScenario = (scenario) => {
+  const prepareScenario = useCallback((scenario) => {
     setPendingScenario(scenario);
     setScreen('trip_prompt');
-  };
+  }, []);
 
-  const startScenario = (scenario, tripBudget) => {
+  const startScenario = useCallback((scenario, tripBudget) => {
     setActiveScenario(scenario);
     setCurrentTime(0);
     setDeclaredTrips(tripBudget);
@@ -108,7 +108,7 @@ export function useGameState() {
     setQuestionsAnswers({});
     setPendingScenario(null);
     setScreen('game');
-  };
+  }, []);
 
   const visitLocation = (code, text) => {
     const codeUpper = String(code).toUpperCase();
@@ -215,18 +215,18 @@ export function useGameState() {
     setScreen('final');
   };
 
-  const exitToMenu = () => {
+  const exitToMenu = useCallback(() => {
     setScreen('menu');
-  };
+  }, []);
 
-  const exitAndResetSave = () => {
+  const exitAndResetSave = useCallback(() => {
     clearSave();
     setActiveScenario(null);
     setVisitedLocations([]);
     setCurrentTime(0);
     setNotes('');
     setScreen('menu');
-  };
+  }, [clearSave]);
 
   return {
     screen,
